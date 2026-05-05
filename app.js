@@ -218,9 +218,13 @@ document.addEventListener('DOMContentLoaded', function() {
     navigator.mediaDevices.getUserMedia({ audio: true })
       .then(function(stream) {
         audioChunks = [];
+        // Prefer lossless/high-quality formats for better STT accuracy
         var mimeType = 'audio/webm';
-        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
-        else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+        if      (MediaRecorder.isTypeSupported('audio/wav'))              mimeType = 'audio/wav';
+        else if (MediaRecorder.isTypeSupported('audio/flac'))             mimeType = 'audio/flac';
+        else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus'))  mimeType = 'audio/ogg;codecs=opus';
+        else if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
+        else if (MediaRecorder.isTypeSupported('audio/mp4'))              mimeType = 'audio/mp4';
 
         mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
         mediaRecorder.addEventListener('dataavailable', function(e) {
@@ -258,7 +262,11 @@ document.addEventListener('DOMContentLoaded', function() {
   function onRecordingStop() {
     if (!audioChunks.length) { setStatus('idle', '沒有錄到聲音，請再試一次'); return; }
     var mimeType = mediaRecorder.mimeType || 'audio/webm';
-    var ext  = mimeType.includes('mp4') ? 'm4a' : 'webm';
+    var ext = 'webm';
+    if      (mimeType.includes('wav'))  ext = 'wav';
+    else if (mimeType.includes('flac')) ext = 'flac';
+    else if (mimeType.includes('ogg'))  ext = 'ogg';
+    else if (mimeType.includes('mp4'))  ext = 'm4a';
     var blob = new Blob(audioChunks, { type: mimeType });
     transcribeAudio(blob, ext)
       .then(function(transcript) {
