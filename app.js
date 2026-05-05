@@ -6,6 +6,7 @@ var STT_MODEL   = 'whisper-large-v3';
 var LLM_MODEL   = 'qwen/qwen3-32b';
 var STORAGE_KEY = 'speakup_groq_key';
 var ROLE_KEY    = 'speakup_role';
+var LANG_KEY    = 'speakup_stt_lang';
 
 var ROLES = {
   none: {
@@ -67,6 +68,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var saveMsg      = document.getElementById('save-msg');
   var toggleVis    = document.getElementById('toggle-vis');
   var roleSelect   = document.getElementById('role-select');
+  var btnLang      = document.getElementById('btn-lang');
   var scenarioBar  = document.getElementById('scenario-bar');
   var scenarioIcon = document.getElementById('scenario-icon');
   var scenarioText = document.getElementById('scenario-text');
@@ -79,6 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var conversationEnded = false;
   var chatHistory       = [];
   var currentRole       = 'none';
+  var sttLang           = 'en';
   var typingCounter     = 0;
   var toastTimer        = null;
 
@@ -167,6 +170,18 @@ document.addEventListener('DOMContentLoaded', function() {
     var roleKey = roleSelect.value;
     try { localStorage.setItem(ROLE_KEY, roleKey); } catch(_) {}
     applyRole(roleKey);
+  });
+
+  // Init lang from storage
+  try { sttLang = localStorage.getItem(LANG_KEY) || 'en'; } catch(_) { sttLang = 'en'; }
+  btnLang.textContent = sttLang === 'zh' ? '中' : 'EN';
+  if (sttLang === 'zh') btnLang.classList.add('zh');
+
+  btnLang.addEventListener('click', function() {
+    sttLang = sttLang === 'en' ? 'zh' : 'en';
+    try { localStorage.setItem(LANG_KEY, sttLang); } catch(_) {}
+    btnLang.textContent = sttLang === 'zh' ? '中' : 'EN';
+    btnLang.classList.toggle('zh', sttLang === 'zh');
   });
 
   function showSaveMsg(text, type) {
@@ -299,7 +314,7 @@ document.addEventListener('DOMContentLoaded', function() {
     form.append('file', blob, 'recording.' + ext);
     form.append('model', STT_MODEL);
     form.append('response_format', 'json');
-    // No language param = Whisper auto-detects zh/en
+    if (sttLang) form.append('language', sttLang); // set by EN/中 toggle
     return fetch(GROQ_API + '/audio/transcriptions', {
       method: 'POST', headers: { 'Authorization': 'Bearer ' + key }, body: form,
     }).then(function(res) {

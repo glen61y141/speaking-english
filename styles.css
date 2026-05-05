@@ -519,6 +519,25 @@ html, body {
   100% { transform: scale(1.7); opacity: 0; }
 }
 
+/* Lang toggle button */
+.btn-lang {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-family: var(--font-mono);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.btn-lang:hover { border-color: var(--accent); color: var(--accent); }
+.btn-lang.zh { border-color: var(--blue); color: var(--blue); background: rgba(91,200,250,0.08); }
+
+/* Spacer to balance layout */
+.action-spacer { width: 44px; flex-shrink: 0; }
+
 /* Send button */
 .btn-send {
   flex: 1;
