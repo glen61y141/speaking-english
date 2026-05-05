@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SpeakUp — AI 英文口說學習</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,400;0,500;1,400&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav class="nav">
+    <div class="nav-logo">
+      <span class="logo-mark">▶</span>
+      <span class="logo-text">SpeakUp</span>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" data-page="practice">練習</button>
+      <button class="nav-tab" data-page="settings">設定</button>
+    </div>
+  </nav>
+
+  <!-- SETTINGS PAGE -->
+  <div class="page" id="page-settings">
+    <div class="settings-wrap">
+      <div class="settings-header">
+        <h1>API 設定</h1>
+        <p>輸入你的 Groq API Key 以開始練習</p>
+      </div>
+
+      <div class="settings-card">
+        <label class="field-label" for="api-key-input">
+          Groq API Key
+          <a href="https://console.groq.com/keys" target="_blank" class="get-key-link">取得 Key →</a>
+        </label>
+        <div class="input-wrap">
+          <input
+            type="password"
+            id="api-key-input"
+            class="field-input"
+            placeholder="gsk_..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button class="toggle-vis" id="toggle-vis" title="顯示/隱藏">👁</button>
+        </div>
+
+        <div class="save-row">
+          <button class="btn-save" id="btn-save">儲存設定</button>
+          <span class="save-msg" id="save-msg"></span>
+        </div>
+
+        <div class="field-group" style="margin-top:20px; padding-top:20px; border-top:1px solid var(--border);">
+          <label class="field-label" for="role-select">練習情境角色</label>
+          <select id="role-select" class="field-input" style="cursor:pointer;">
+            <option value="none">無 — 自由對話</option>
+            <option value="clerk">🛍 店員 — 購物情境</option>
+            <option value="doctor">🩺 醫生 — 看診情境</option>
+            <option value="police">👮 警察 — 協助情境</option>
+          </select>
+        </div>
+
+        <div class="settings-note">
+          <span class="note-icon">🔒</span>
+          API Key 僅儲存於本機 Cookie，不會上傳至任何伺服器。
+        </div>
+      </div>
+
+      <div class="model-info">
+        <div class="model-chip">
+          <span class="chip-dot stt"></span>
+          <span>STT — whisper-large-v3</span>
+        </div>
+        <div class="model-chip">
+          <span class="chip-dot llm"></span>
+          <span>LLM — qwen/qwen3-32b</span>
+        </div>
+        <div class="model-chip">
+          <span class="chip-dot tts"></span>
+          <span>TTS — playai-tts</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PRACTICE PAGE -->
+  <div class="page active" id="page-practice">
+
+    <!-- TOP BAR -->
+    <div class="top-bar">
+      <span class="top-bar-title">練習</span>
+      <button class="btn-clear" id="btn-clear" title="清除對話">🗑 清除對話</button>
+    </div>
+
+    <!-- SCENARIO BAR -->
+    <div class="scenario-bar" id="scenario-bar" style="display:none">
+      <span class="scenario-icon" id="scenario-icon"></span>
+      <span class="scenario-text" id="scenario-text"></span>
+    </div>
+
+    <!-- CHAT AREA -->
+    <div class="chat-area" id="chat-area">
+      <div class="chat-inner" id="chat-inner">
+
+        <!-- Welcome -->
+        <div class="welcome-msg">
+          <div class="welcome-icon">🎙️</div>
+          <h2>準備好了嗎？</h2>
+          <p>按下錄音鈕，開口說英文吧！<br/>AI 會即時糾正、陪你對話。</p>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- CONTROLS -->
+    <div class="controls">
+      <div class="controls-inner">
+        <!-- Status bar -->
+        <div class="status-bar" id="status-bar">
+          <span class="status-dot idle" id="status-dot"></span>
+          <span class="status-text" id="status-text">點擊麥克風開始錄音</span>
+        </div>
+
+        <!-- Action row -->
+        <div class="action-row">
+          <button class="btn-record" id="btn-record" title="錄音">
+            <span class="record-icon" id="record-icon">🎙️</span>
+            <span class="record-ripple" id="record-ripple"></span>
+          </button>
+
+        </div>
+
+        <!-- Hidden preview (used internally) -->
+        <div id="preview-wrap" style="display:none">
+          <span id="preview-text"></span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
