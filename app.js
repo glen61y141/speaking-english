@@ -496,6 +496,6 @@ document.addEventListener('DOMContentLoaded', function() {
   // Restore saved role
   applyRole(storedRole);
 
-  if (!loadApiKey()) { switchToTab('settings'); showToast('歡迎！請先設定你的 Groq API Key'); }
+  if (!loadApiKey()) { showToast('歡迎！請先設定你的 Groq API Key'); }
 
 }); // end DOMContentLoaded
