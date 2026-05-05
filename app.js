@@ -281,6 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
     isProcessing = true;
     addMessage('user', userText);
     chatHistory.push({ role: 'user', content: userText });
+    console.log('[Session] history length:', chatHistory.length, chatHistory.map(function(m){return m.role+':'+m.content.slice(0,30);}));
     var typingId = addTypingIndicator();
     setStatus('loading', 'AI 思考中…');
 
@@ -336,8 +337,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
   function callLLM(history) {
     var key = loadApiKey().trim();
-    var historyClean = history.map(function(msg, i) {
-      return (msg.role === 'user' && i === history.length - 1)
+    // Keep last 20 messages (10 turns) to maintain session context without overflow
+    var recentHistory = history.slice(-20);
+    var historyClean = recentHistory.map(function(msg, i) {
+      return (msg.role === 'user' && i === recentHistory.length - 1)
         ? { role: msg.role, content: msg.content + ' /no_think' }
         : msg;
     });
@@ -345,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function() {
     return fetch(GROQ_API + '/chat/completions', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: LLM_MODEL, messages: messages, max_tokens: 512, temperature: 0.8 }),
+      body: JSON.stringify({ model: LLM_MODEL, messages: messages, max_tokens: 1024, temperature: 0.8 }),
     }).then(function(res) {
       if (!res.ok) return res.json().catch(function(){return{};}).then(function(e){
         var err = new Error(e.error&&e.error.message?e.error.message:'LLM HTTP '+res.status);
