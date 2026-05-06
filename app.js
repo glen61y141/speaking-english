@@ -31,9 +31,29 @@ var ROLES = {
 
 function buildSystemPrompt(roleKey) {
   var role = ROLES[roleKey] || ROLES.none;
-  var base = 'You are an enthusiastic and friendly English conversation coach helping users practice spoken English.';
-  var roleCtx = role.context ? '\n\nROLE CONTEXT: ' + role.context : '';
-  return base + roleCtx + '\n\nDo NOT output any <think> tags. Reply ONLY with a raw JSON object, no markdown, no extra text.\n\nJSON format:\n{"reply":"<English response>","correction":"<corrected sentence or empty>","zh_explanation":"<Chinese explanation or empty>","suggest_retry":false}\n\nRules:\n1. Correct English -> reply naturally in character, extend conversation.\n2. Chinese input -> zh_explanation teaches English phrase, ask them to try.\n3. Confused ("I don\'t understand","What?","什麼","聽不懂") -> zh_explanation explains in Chinese, repeat question.\n4. Off-topic -> zh_explanation guides back.\n5. Grammar mistake -> correction field has fix; reply warmly.\n6. Short replies (1-3 sentences). Always end with a follow-up question.\n7. Be encouraging and patient.';
+  var roleCtx = role.context ? '\n\nROLE: ' + role.context : '';
+  var prompt = 'You are a friendly English conversation coach.' + roleCtx + '\n\n'
+    + 'Reply ONLY with a raw JSON object. No markdown, no <think> tags, no extra text.\n\n'
+    + 'JSON fields:\n'
+    + '  reply          : your English response (always required)\n'
+    + '  correction     : corrected English if user made grammar/vocab mistake, else ""\n'
+    + '  zh_explanation : Chinese explanation in Case C only, else ""\n'
+    + '  zh_translation : Chinese translation of your reply in Case D only, else ""\n'
+    + '  suggest_retry  : true only in Case C, else false\n\n'
+    + 'Apply exactly ONE case:\n\n'
+    + 'CASE A - User speaks correct English:\n'
+    + '  reply=natural response+follow-up question, correction="", zh_explanation="", zh_translation="", suggest_retry=false\n\n'
+    + 'CASE B - User speaks English with grammar/vocab mistakes:\n'
+    + '  reply=natural response+follow-up question (respond naturally, do not mention the mistake in reply)\n'
+    + '  correction=corrected version of what user said, zh_explanation="", zh_translation="", suggest_retry=false\n\n'
+    + 'CASE C - User speaks Chinese:\n'
+    + '  reply="You can say: [English translation]. Please try again!"\n'
+    + '  correction="", zh_explanation="", zh_translation="", suggest_retry=true\n\n'
+    + 'CASE D - User says they do not understand ("I don\'t understand","what?","pardon?","聽不懂","什麼","再說一次"):\n'
+    + '  reply=repeat your previous message in simpler English\n'
+    + '  correction="", zh_explanation="", zh_translation=Chinese translation of your reply, suggest_retry=false\n\n'
+    + 'GENERAL: Keep reply to 1-2 sentences. Always end with a question (except Case C). Be warm and encouraging.';
+  return prompt;
 }
 
 /* ── STORAGE ── */
@@ -442,8 +462,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (parsed.reply) {
       var p = document.createElement('p'); p.textContent = parsed.reply; bubble.appendChild(p);
     }
+    if (parsed.correction)     bubble.appendChild(makeBlock('✏️ 正確說法', parsed.correction, true, parsed.correction, 'en-US'));
     if (parsed.zh_explanation) bubble.appendChild(makeBlock('💡 解說', parsed.zh_explanation, false, parsed.zh_explanation, 'zh-TW'));
-    if (parsed.correction)     bubble.appendChild(makeBlock('✏️ 建議說法', parsed.correction, true, parsed.correction, 'en-US'));
+    if (parsed.zh_translation) bubble.appendChild(makeBlock('🌐 中文翻譯', parsed.zh_translation, false, parsed.zh_translation, 'zh-TW'));
 
     wrap.appendChild(label); wrap.appendChild(bubble);
     chatInner.appendChild(wrap); scrollToBottom();
