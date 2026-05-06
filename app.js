@@ -366,6 +366,23 @@ document.addEventListener('DOMContentLoaded', function() {
     return voices.find(function(v){ return v.lang.startsWith('en'); }) || null;
   }
 
+  function speakBlock(text, lang, btn) {
+    if (!window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    var utt   = new SpeechSynthesisUtterance(text);
+    utt.lang  = lang || 'en-US';
+    utt.rate  = 0.92;
+    utt.pitch = 1.05;
+    if (lang && lang.startsWith('en')) {
+      var voice = getEnglishVoice();
+      if (voice) utt.voice = voice;
+    }
+    if (btn) { btn.classList.add('playing'); btn.innerHTML = '⏸'; }
+    utt.onend  = function() { if (btn) { btn.classList.remove('playing'); btn.innerHTML = '▶'; } };
+    utt.onerror = function() { if (btn) { btn.classList.remove('playing'); btn.innerHTML = '▶'; } };
+    setTimeout(function(){ window.speechSynthesis.speak(utt); }, 50);
+  }
+
   function speakText(text, bubbleEl) {
     if (!window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -425,21 +442,43 @@ document.addEventListener('DOMContentLoaded', function() {
     if (parsed.reply) {
       var p = document.createElement('p'); p.textContent = parsed.reply; bubble.appendChild(p);
     }
-    if (parsed.zh_explanation) bubble.appendChild(makeBlock('💡 解說', parsed.zh_explanation, false));
-    if (parsed.correction)     bubble.appendChild(makeBlock('✏️ 建議說法', parsed.correction, true));
+    if (parsed.zh_explanation) bubble.appendChild(makeBlock('💡 解說', parsed.zh_explanation, false, parsed.zh_explanation, 'zh-TW'));
+    if (parsed.correction)     bubble.appendChild(makeBlock('✏️ 建議說法', parsed.correction, true, parsed.correction, 'en-US'));
 
     wrap.appendChild(label); wrap.appendChild(bubble);
     chatInner.appendChild(wrap); scrollToBottom();
     return bubble;
   }
 
-  function makeBlock(labelText, content, isCode) {
+  function makeBlock(labelText, content, isCode, ttsText, ttsLang) {
     var block = document.createElement('div'); block.className = 'correction-block';
+    var header = document.createElement('div'); header.className = 'block-header';
     var lbl   = document.createElement('div'); lbl.className = 'correction-label'; lbl.textContent = labelText;
+    header.appendChild(lbl);
+    // Play button for this block
+    if (ttsText) {
+      var btn = document.createElement('button');
+      btn.className = 'tts-btn tts-btn-sm';
+      btn.innerHTML = '▶';
+      btn.title = '播放';
+      btn.addEventListener('click', function() {
+        if (btn.classList.contains('playing')) {
+          window.speechSynthesis.cancel();
+          btn.classList.remove('playing'); btn.innerHTML = '▶';
+          return;
+        }
+        document.querySelectorAll('.tts-btn.playing').forEach(function(b){
+          b.classList.remove('playing');
+          b.innerHTML = b.classList.contains('tts-btn-sm') ? '▶' : '▶ 播放語音';
+        });
+        speakBlock(ttsText, ttsLang || 'en-US', btn);
+      });
+      header.appendChild(btn);
+    }
     var body  = document.createElement('div');
     if (isCode) body.className = 'correction-correct';
     body.textContent = content;
-    block.appendChild(lbl); block.appendChild(body);
+    block.appendChild(header); block.appendChild(body);
     return block;
   }
 
