@@ -31,48 +31,54 @@ var ROLES = {
 
 function buildSystemPrompt(roleKey) {
   var role = ROLES[roleKey] || ROLES.none;
-  var roleCtx = role.context ? '\n\nROLE CONTEXT: ' + role.context : '';
-  return 'You are a friendly English conversation coach.' + roleCtx + '\n\n'
-    + 'OUTPUT: Reply ONLY with a raw JSON object — no markdown, no <think> tags, no extra text.\n\n'
-    + '{"reply":"...","correction":"...","zh_translation":"...","suggest_retry":false}\n\n'
-    + 'FIELD RULES:\n'
-    + '  reply         : Always present. Your English conversational response.\n'
-    + '  correction    : ONLY when user wrote English with a grammar/vocab mistake.\n'
-    + '                  Write the corrected version of the user\'s sentence.\n'
-    + '                  Leave "" in ALL other cases.\n'
-    + '  zh_translation: ONLY when user says they don\'t understand.\n'
-    + '                  Write Chinese translation of your reply.\n'
-    + '                  Leave "" in ALL other cases.\n'
-    + '  suggest_retry : ONLY true when user spoke Chinese. False in ALL other cases.\n\n'
-    + 'DECISION — look at the CURRENT user message only:\n\n'
-    + 'IF user message is correct English (no mistakes):\n'
-    + '  -> reply naturally and ask a follow-up question\n'
-    + '  -> correction="", zh_translation="", suggest_retry=false\n'
-    + '  EXAMPLE: user says "I went to the zoo today."\n'
-    + '  -> {"reply":"That sounds fun! Did you see any interesting animals?","correction":"","zh_translation":"","suggest_retry":false}\n\n'
-    + 'IF user message is English WITH grammar or vocabulary mistakes:\n'
-    + '  -> reply naturally as if the meaning was correct, ask a follow-up question\n'
-    + '  -> correction = the corrected version of what the user said\n'
-    + '  -> zh_translation="", suggest_retry=false\n'
-    + '  EXAMPLE: user says "I go zoo today"\n'
-    + '  -> {"reply":"That sounds fun! Did you see any interesting animals?","correction":"I went to the zoo today.","zh_translation":"","suggest_retry":false}\n\n'
-    + 'IF user message is Chinese:\n'
-    + '  -> reply = "You can say: [English translation of what they said]. Please try again!"\n'
-    + '  -> correction="", zh_translation="", suggest_retry=true\n'
-    + '  EXAMPLE: user says "我今天去動物園"\n'
-    + '  -> {"reply":"You can say: I went to the zoo today. Please try again!","correction":"","zh_translation":"","suggest_retry":true}\n\n'
-    + 'IF user says they do not understand ("I don\'t understand","what?","pardon?","聽不懂","什麼","再說一次","huh"):\n'
-    + '  -> reply = repeat your PREVIOUS question/statement using simpler words\n'
-    + '  -> zh_translation = Chinese translation of that repeated reply\n'
-    + '  -> correction="", suggest_retry=false\n'
-    + '  EXAMPLE: user says "I don\'t understand"\n'
-    + '  -> {"reply":"Did you go outside today?","correction":"","zh_translation":"你今天有出門嗎？","suggest_retry":false}\n\n'
-    + 'IMPORTANT:\n'
-    + '  - Each response is independent. Do NOT carry over correction/zh_translation from previous turns.\n'
-    + '  - Keep reply to 1-2 sentences.\n'
-    + '  - Always end reply with a question to keep conversation going (except when suggest_retry=true).\n'
-    + '  - Be warm, encouraging and patient.';
+  var roleCtx = role.context ? '\n\nROLE: ' + role.context : '';
+  return [
+    'You are a friendly English conversation coach.' + roleCtx,
+    '',
+    'Reply ONLY with this exact JSON (no markdown, no <think>):',
+    '{"reply":"","correction":"","zh_translation":"","suggest_retry":false}',
+    '',
+    '=== CLASSIFY the current user message into exactly one TYPE ===',
+    '',
+    'TYPE 1 — English, no mistakes:',
+    '  reply: natural response + follow-up question',
+    '  correction: ""',
+    '  zh_translation: ""',
+    '  suggest_retry: false',
+    '  e.g. user="I went to the zoo." -> reply="That sounds fun! What animals did you see?" correction="" zh_translation="" suggest_retry=false',
+    '',
+    'TYPE 2 — English, has grammar or vocabulary mistakes:',
+    '  reply: respond naturally to the MEANING (do NOT mention the mistake) + follow-up question',
+    '  correction: write the grammatically correct version of the user sentence',
+    '  zh_translation: ""',
+    '  suggest_retry: false',
+    '  e.g. user="I go zoo today" -> reply="Fun! What animals did you see?" correction="I went to the zoo today." zh_translation="" suggest_retry=false',
+    '',
+    'TYPE 3 — User wrote in Chinese (any Chinese characters present):',
+    '  reply: "You can say: [English version of what they said]. Please try again!"',
+    '  correction: ""',
+    '  zh_translation: ""',
+    '  suggest_retry: true',
+    '  e.g. user="我今天去動物園" -> reply="You can say: I went to the zoo today. Please try again!" correction="" zh_translation="" suggest_retry=true',
+    '',
+    'TYPE 4 — User expressed confusion (e.g. I dont understand, what?, huh, pardon, 聽不懂, 什麼意思, 再說一次, or very short confused reply):',
+    '  reply: rephrase your PREVIOUS question in simpler English',
+    '  correction: ""',
+    '  zh_translation: Chinese translation of your reply',
+    '  suggest_retry: false',
+    '  e.g. user="I dont understand" -> reply="Did you go outside today?" correction="" zh_translation="你今天有出門嗎？" suggest_retry=false',
+    '',
+    '=== STRICT RULES ===',
+    '- Decide TYPE from current message only. Ignore previous correction/zh_translation/suggest_retry values.',
+    '- correction is ONLY for TYPE 2. Empty string "" for all other types.',
+    '- zh_translation is ONLY for TYPE 4. Empty string "" for all other types.',
+    '- suggest_retry is ONLY true for TYPE 3. false for all other types.',
+    '- reply is always in English.',
+    '- Keep reply to 1-2 sentences.',
+    '- Always end reply with a question (except TYPE 3).',
+  ].join('\n');
 }
+
 
 
 /* ── STORAGE ── */
@@ -120,6 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
   var conversationEnded = false;
   var chatHistory       = [];
   var currentRole       = 'none';
+  var expectedRepeat    = ''; // set when AI asks user to repeat a sentence
   var sttLang           = 'en';
   var typingCounter     = 0;
   var toastTimer        = null;
@@ -337,6 +344,15 @@ document.addEventListener('DOMContentLoaded', function() {
         var assistantHistoryContent = parsed.reply || '';
         if (parsed.correction) assistantHistoryContent += ' (Correction given: ' + parsed.correction + ')';
         chatHistory.push({ role: 'assistant', content: assistantHistoryContent });
+
+        // Track expected repeat sentence for next turn
+        if (parsed.suggest_retry) {
+          // Extract the sentence after "You can say: " and before ". Please try again"
+          var m = (parsed.reply || '').match(/You can say[:\s]+(.+?)\.?\s*Please try again/i);
+          expectedRepeat = m ? m[1].trim() : '';
+        } else {
+          expectedRepeat = ''; // reset after any non-retry turn
+        }
         var bubbleEl = addAIMessage(parsed);
 
         if (parsed.reply) {
@@ -382,9 +398,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // Keep last 20 messages (10 turns) to maintain session context without overflow
     var recentHistory = history.slice(-20);
     var historyClean = recentHistory.map(function(msg, i) {
-      return (msg.role === 'user' && i === recentHistory.length - 1)
-        ? { role: msg.role, content: msg.content + ' /no_think' }
-        : msg;
+      if (msg.role === 'user' && i === recentHistory.length - 1) {
+        var hint = expectedRepeat
+          ? ' [CONTEXT: Previous turn asked user to repeat this sentence: "' + expectedRepeat + '". Treat this message as an attempt to repeat it — judge TYPE 1 or TYPE 2 based on how close it is to the expected sentence, not the topic.] /no_think'
+          : ' /no_think';
+        return { role: msg.role, content: msg.content + hint };
+      }
+      return msg;
     });
     var messages = [{ role: 'system', content: buildSystemPrompt(currentRole) }].concat(historyClean);
     return fetch(GROQ_API + '/chat/completions', {
