@@ -31,30 +31,49 @@ var ROLES = {
 
 function buildSystemPrompt(roleKey) {
   var role = ROLES[roleKey] || ROLES.none;
-  var roleCtx = role.context ? '\n\nROLE: ' + role.context : '';
-  var prompt = 'You are a friendly English conversation coach.' + roleCtx + '\n\n'
-    + 'Reply ONLY with a raw JSON object. No markdown, no <think> tags, no extra text.\n\n'
-    + 'JSON fields:\n'
-    + '  reply          : your English response (always required)\n'
-    + '  correction     : corrected English if user made grammar/vocab mistake, else ""\n'
-    + '  zh_explanation : Chinese explanation in Case C only, else ""\n'
-    + '  zh_translation : Chinese translation of your reply in Case D only, else ""\n'
-    + '  suggest_retry  : true only in Case C, else false\n\n'
-    + 'Apply exactly ONE case:\n\n'
-    + 'CASE A - User speaks correct English:\n'
-    + '  reply=natural response+follow-up question, correction="", zh_explanation="", zh_translation="", suggest_retry=false\n\n'
-    + 'CASE B - User speaks English with grammar/vocab mistakes:\n'
-    + '  reply=natural response+follow-up question (respond naturally, do not mention the mistake in reply)\n'
-    + '  correction=corrected version of what user said, zh_explanation="", zh_translation="", suggest_retry=false\n\n'
-    + 'CASE C - User speaks Chinese:\n'
-    + '  reply="You can say: [English translation]. Please try again!"\n'
-    + '  correction="", zh_explanation="", zh_translation="", suggest_retry=true\n\n'
-    + 'CASE D - User says they do not understand ("I don\'t understand","what?","pardon?","聽不懂","什麼","再說一次"):\n'
-    + '  reply=repeat your previous message in simpler English\n'
-    + '  correction="", zh_explanation="", zh_translation=Chinese translation of your reply, suggest_retry=false\n\n'
-    + 'GENERAL: Keep reply to 1-2 sentences. Always end with a question (except Case C). Be warm and encouraging.';
-  return prompt;
+  var roleCtx = role.context ? '\n\nROLE CONTEXT: ' + role.context : '';
+  return 'You are a friendly English conversation coach.' + roleCtx + '\n\n'
+    + 'OUTPUT: Reply ONLY with a raw JSON object — no markdown, no <think> tags, no extra text.\n\n'
+    + '{"reply":"...","correction":"...","zh_translation":"...","suggest_retry":false}\n\n'
+    + 'FIELD RULES:\n'
+    + '  reply         : Always present. Your English conversational response.\n'
+    + '  correction    : ONLY when user wrote English with a grammar/vocab mistake.\n'
+    + '                  Write the corrected version of the user\'s sentence.\n'
+    + '                  Leave "" in ALL other cases.\n'
+    + '  zh_translation: ONLY when user says they don\'t understand.\n'
+    + '                  Write Chinese translation of your reply.\n'
+    + '                  Leave "" in ALL other cases.\n'
+    + '  suggest_retry : ONLY true when user spoke Chinese. False in ALL other cases.\n\n'
+    + 'DECISION — look at the CURRENT user message only:\n\n'
+    + 'IF user message is correct English (no mistakes):\n'
+    + '  -> reply naturally and ask a follow-up question\n'
+    + '  -> correction="", zh_translation="", suggest_retry=false\n'
+    + '  EXAMPLE: user says "I went to the zoo today."\n'
+    + '  -> {"reply":"That sounds fun! Did you see any interesting animals?","correction":"","zh_translation":"","suggest_retry":false}\n\n'
+    + 'IF user message is English WITH grammar or vocabulary mistakes:\n'
+    + '  -> reply naturally as if the meaning was correct, ask a follow-up question\n'
+    + '  -> correction = the corrected version of what the user said\n'
+    + '  -> zh_translation="", suggest_retry=false\n'
+    + '  EXAMPLE: user says "I go zoo today"\n'
+    + '  -> {"reply":"That sounds fun! Did you see any interesting animals?","correction":"I went to the zoo today.","zh_translation":"","suggest_retry":false}\n\n'
+    + 'IF user message is Chinese:\n'
+    + '  -> reply = "You can say: [English translation of what they said]. Please try again!"\n'
+    + '  -> correction="", zh_translation="", suggest_retry=true\n'
+    + '  EXAMPLE: user says "我今天去動物園"\n'
+    + '  -> {"reply":"You can say: I went to the zoo today. Please try again!","correction":"","zh_translation":"","suggest_retry":true}\n\n'
+    + 'IF user says they do not understand ("I don\'t understand","what?","pardon?","聽不懂","什麼","再說一次","huh"):\n'
+    + '  -> reply = repeat your PREVIOUS question/statement using simpler words\n'
+    + '  -> zh_translation = Chinese translation of that repeated reply\n'
+    + '  -> correction="", suggest_retry=false\n'
+    + '  EXAMPLE: user says "I don\'t understand"\n'
+    + '  -> {"reply":"Did you go outside today?","correction":"","zh_translation":"你今天有出門嗎？","suggest_retry":false}\n\n'
+    + 'IMPORTANT:\n'
+    + '  - Each response is independent. Do NOT carry over correction/zh_translation from previous turns.\n'
+    + '  - Keep reply to 1-2 sentences.\n'
+    + '  - Always end reply with a question to keep conversation going (except when suggest_retry=true).\n'
+    + '  - Be warm, encouraging and patient.';
 }
+
 
 /* ── STORAGE ── */
 function saveApiKey(key) {
@@ -314,7 +333,10 @@ document.addEventListener('DOMContentLoaded', function() {
         try { parsed = JSON.parse(clean); }
         catch(_) { parsed = { reply: noThink || raw, correction: '', zh_explanation: '', suggest_retry: false }; }
 
-        chatHistory.push({ role: 'assistant', content: parsed.reply || '' });
+        // Store reply in history; if correction exists, append it so future context knows what was said correctly
+        var assistantHistoryContent = parsed.reply || '';
+        if (parsed.correction) assistantHistoryContent += ' (Correction given: ' + parsed.correction + ')';
+        chatHistory.push({ role: 'assistant', content: assistantHistoryContent });
         var bubbleEl = addAIMessage(parsed);
 
         if (parsed.reply) {
