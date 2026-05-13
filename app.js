@@ -36,7 +36,10 @@ function buildSystemPrompt(roleKey) {
     'You are a friendly English conversation coach.' + roleCtx,
     '',
     'Reply ONLY with this exact JSON (no markdown, no <think>):',
-    '{"reply":"","correction":"","zh_translation":"","suggest_retry":false}',
+    '{"reply":"","correction":"","zh_translation":"","suggest_retry":false,"emoji_scene":""}',
+    '',
+    'emoji_scene: 3-5 emojis that visually represent the topic or mood of the conversation. Always present.',
+    '  e.g. talking about zoo -> "🦁🐘🦒", weather hot -> "☀️🥵💦", cooking -> "🍳👨‍🍳🥘", grammar correction -> "✏️📝💡"',
     '',
     '=== CLASSIFY the current user message into exactly one TYPE ===',
     '',
@@ -78,6 +81,7 @@ function buildSystemPrompt(roleKey) {
     '- Always end reply with a question (except TYPE 3).',
   ].join('\n');
 }
+
 
 
 
@@ -501,6 +505,13 @@ document.addEventListener('DOMContentLoaded', function() {
     var label  = document.createElement('div'); label.className = 'msg-role'; label.textContent = 'AI Coach';
     var bubble = document.createElement('div'); bubble.className = 'msg-bubble';
 
+    // Emoji scene banner
+    if (parsed.emoji_scene) {
+      var scene = document.createElement('div');
+      scene.className = 'emoji-scene';
+      scene.textContent = parsed.emoji_scene;
+      bubble.appendChild(scene);
+    }
     if (parsed.reply) {
       var p = document.createElement('p'); p.textContent = parsed.reply; bubble.appendChild(p);
     }

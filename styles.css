@@ -366,6 +366,20 @@ html, body {
   border-radius: 16px 16px 16px 4px;
 }
 
+/* Emoji scene */
+.emoji-scene {
+  font-size: 24px;
+  letter-spacing: 4px;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  opacity: 0;
+  animation: emojiIn 0.4s 0.1s ease-out forwards;
+}
+@keyframes emojiIn {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 /* Typing indicator */
 .typing-bubble {
   display: flex; align-items: center; gap: 5px;
